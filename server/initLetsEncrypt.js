@@ -6,11 +6,14 @@
  * @api private
  */
 
-var letsencrypt = require('letsencrypt-express');
+'use strict';
 
-module.exports = function (keystone, app) {
+var Greenlock = require('greenlock-express');
 
-	var options = keystone.get('letsencrypt');
+module.exports = function (keystone, app){
+
+
+	var options = keystone.get('greenlock');
 	var ssl = keystone.get('ssl');
 	if (!options) {
 		return;
@@ -24,9 +27,11 @@ module.exports = function (keystone, app) {
 
 	var email = options.email;
 	var approveDomains = options.domains;
-	var server = options.production ? 'production' : 'staging';
+	var server = (options.production === 'production' ? 'https://acme-v02.api.letsencrypt.org/directory' : 'https://acme-staging-v02.api.letsencrypt.org/directory');
 	var agreeTos = options.tos;
-
+	var renewWithin = options.renewWithin;
+	var renewBy = options.renewBy;
+	
 	if (!Array.isArray(approveDomains)) {
 		approveDomains = [approveDomains];
 	}
@@ -34,14 +39,40 @@ module.exports = function (keystone, app) {
 		console.error("For auto registation with Let's Encrypt you have to agree to the TOS (https://letsencrypt.org/repository/) (tos: true), provide domains (domains: ['mydomain.com', 'www.mydomain.com']) and a domain owner email (email: 'admin@mydomain.com')");
 		return;
 	}
-	// TODO maybe we should use le-store-mongo
-	var lex = letsencrypt.create({
-		server: server,
-		approveDomains: approveDomains,
-		agreeTos: agreeTos,
-		email: email,
+
+	var greenlock = Greenlock.create({
+
+	  // Let's Encrypt v2 is ACME draft 11
+	  version: 'draft-11'
+
+	, server: server
+	  // Note: If at first you don't succeed, stop and switch to staging
+	  // https://acme-staging-v02.api.letsencrypt.org/directory
+
+	  // You MUST change this to a valid email address
+	, email: email
+
+	  // You MUST NOT build clients that accept the ToS without asking the user
+	, agreeTos: agreeTos
+
+	  // You MUST change these to valid domains
+	  // NOTE: all domains will validated and listed on the certificate
+	, approvedDomains: approveDomains
+
+	  // You MUST have access to write to directory where certs are saved
+	  // ex: /home/foouser/acme/etc
+	, configDir: '~/.config/acme/'
+
+	  // Get notified of important updates and help me make greenlock better
+	, communityMember: true
+
+	//, debug: true
+	, renewWithin: renewWithin
+	, renewBy: renewBy
+
 	});
 
-	keystone.set('https server options', lex.httpsOptions);
-	app.use(lex.middleware());
-};
+	keystone.set('https server options', greenlock.httpsOptions);
+	app.use(greenlock.middleware());
+
+}
