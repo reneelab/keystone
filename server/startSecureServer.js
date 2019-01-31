@@ -68,7 +68,7 @@ module.exports = function (keystone, app, created, callback) {
 		};
 	}
 
-	if ((!options.key || !options.cert) && !options.pfx && !keystone.get('letsencrypt')) {
+	if ((!options.key || !options.cert) && !options.pfx && !keystone.get('greenlock')) {
 		if (sniFunc) {
 			// We populate the config with what sniFunc returns for localhost
 			var localCtx = sniFunc('localhost');
